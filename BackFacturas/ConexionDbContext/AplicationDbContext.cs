@@ -6,7 +6,10 @@ namespace BackFacturas.ConexionDbContext
 {
     public class AplicationDbContext: DbContext
     {
-        DbSet<Factura> Factura { get; set; }
+        DbSet<Factura> Facturas { get; set; }
+        DbSet<Factura> Articulos { get; set; }
+        DbSet<Factura> Ciudades { get; set; }
+
         public AplicationDbContext(DbContextOptions<AplicationDbContext> options): base(options)
         {
 
