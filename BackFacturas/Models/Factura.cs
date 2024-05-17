@@ -5,19 +5,21 @@ namespace BackFacturas.Models
 {
     public class Factura
     {
-        public int FacturaId { get; set; }
-        [Required]
+        [Key]
         public int NumeroFactura { get; set; }
         [Required]
-        public double ValorTotal { get; set; }
+        public string Fecha { get; set; }
         [Required]
-        public int ArticuloId { get; set; }
+        public int ClienteId { get; set; }
         [Required]
-        public Articulo Articulo { get; set; }
-        [Required]
-        public int CiudadId { get; set; }
-        [Required]
-        public Ciudad Ciudad { get; set; }
-               
+        public Cliente Cliente { get; set; }
+
+        public IList<DetalleFactura> DetalleFacturas { get; set; }
+
+        public Factura()
+        {
+            DetalleFacturas = new List<DetalleFactura>();
+        }
+
     }
 }

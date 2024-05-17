@@ -5,15 +5,16 @@ namespace BackFacturas.Models
 {
     public class Ciudad
     {
+        [Key]
         public int CiudadId { get; set; }
         [Required]
         public string Nombre { get; set; }
         public string Departamento { get; set; }
-        public IList<Factura> Facturas { get; set; }
+        public IList<Cliente> Clientes { get; set; }
 
         public Ciudad()
         {
-            Facturas = new List<Factura>();
+            Clientes = new List<Cliente>();
         }
     }
 }
