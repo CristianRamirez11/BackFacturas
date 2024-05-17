@@ -10,6 +10,8 @@ namespace BackFacturas.Models
         public int Cantidad { get; set; }
         [Required]
         public double ValorTotal { get; set; }
+        public string NombreCiudad { get; set; }
+        public string NombreArticulo { get; set; }
         [Required]
         public int NumeroFactura { get; set; }
         [Required]
