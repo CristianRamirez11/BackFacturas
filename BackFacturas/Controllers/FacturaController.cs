@@ -25,7 +25,8 @@ namespace BackFacturas.Controllers
     
             try
             {
-                var listaFacturas = await _context.Factura
+                /*
+                var listaFacturas = await _context.Facturas
                     .Include(f => f.Articulo)
                     .Include(f => f.Ciudad)
                     .Select(f => new 
@@ -38,6 +39,8 @@ namespace BackFacturas.Controllers
                     .ToListAsync();
             
                 return Ok(listaFacturas);
+                */
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -51,6 +54,7 @@ namespace BackFacturas.Controllers
         {
             try
             {
+                /*
                 Factura? facturaEncontrada = await _context.Factura
                                                       .Include(f => f.Articulo)
                                                       .Include(f => f.Ciudad)
@@ -60,6 +64,8 @@ namespace BackFacturas.Controllers
                     return NotFound();
 
                 return Ok(facturaEncontrada);
+                */
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -71,16 +77,20 @@ namespace BackFacturas.Controllers
         [HttpPost]
         public async Task<ActionResult<Factura>> PostFactura(Factura factura)
         {
+            /*
             _context.Factura.Add(factura);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetFactura), new { id = factura.FacturaId }, factura);
+            */
+            return Ok();
         }
 
         // PUT api/<FacturaController>/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutFactura(int id, Factura factura)
         {
+            /*
             if (id != factura.FacturaId)
             {
                 return BadRequest();
@@ -104,12 +114,15 @@ namespace BackFacturas.Controllers
             }
 
             return NoContent();
+            */
+            return Ok();
         }
 
         // DELETE api/<FacturaController>/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteFactura(int id)
         {
+            /*
             Factura? factura = await _context.Factura.FindAsync(id);
             if (factura == null)
             {
@@ -121,11 +134,15 @@ namespace BackFacturas.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+            */
+            return Ok();
         }
 
+        /*
         private bool FacturaExists(int id)
         {
             return _context.Factura.Any(e => e.FacturaId == id);
         }
+        */
     }
 }
