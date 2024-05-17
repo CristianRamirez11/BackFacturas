@@ -1,4 +1,5 @@
 ﻿using BackFacturas.ConexionDbContext;
+using BackFacturas.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,12 +36,6 @@ namespace BackFacturas.Controllers
                         NombreCiudad = f.Ciudad.Nombre
                     })
                     .ToListAsync();
-
-                foreach (var factura in listaFacturas)
-                {
-                    Console.WriteLine($"Numero: {factura.NumeroFactura}, Valor: {factura.ValorTotal}, " +
-                          $"Articulo: {factura.NombreArticulo}, Ciudad: {factura.NombreCiudad}");
-                }
             
                 return Ok(listaFacturas);
             }
@@ -52,27 +47,85 @@ namespace BackFacturas.Controllers
 
         // GET api/<FacturaController>/5
         [HttpGet("{id}")]
-        public string Get(int id)
+        public async Task<ActionResult<Factura>> GetFactura(int id)
         {
-            return "value";
+            try
+            {
+                Factura? facturaEncontrada = await _context.Factura
+                                                      .Include(f => f.Articulo)
+                                                      .Include(f => f.Ciudad)
+                                                      .FirstOrDefaultAsync(f => f.FacturaId == id);
+
+                if (facturaEncontrada == null)
+                    return NotFound();
+
+                return Ok(facturaEncontrada);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }                                                           
         }
 
         // POST api/<FacturaController>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public async Task<ActionResult<Factura>> PostFactura(Factura factura)
         {
+            _context.Factura.Add(factura);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetFactura), new { id = factura.FacturaId }, factura);
         }
 
         // PUT api/<FacturaController>/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        public async Task<IActionResult> PutFactura(int id, Factura factura)
         {
+            if (id != factura.FacturaId)
+            {
+                return BadRequest();
+            }
+
+            _context.Entry(factura).State = EntityState.Modified;
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!FacturaExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
         }
 
         // DELETE api/<FacturaController>/5
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public async Task<IActionResult> DeleteFactura(int id)
         {
+            Factura? factura = await _context.Factura.FindAsync(id);
+            if (factura == null)
+            {
+                return NotFound(id);
+            }
+
+            _context.Factura.Remove(factura);
+
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool FacturaExists(int id)
+        {
+            return _context.Factura.Any(e => e.FacturaId == id);
         }
     }
 }
