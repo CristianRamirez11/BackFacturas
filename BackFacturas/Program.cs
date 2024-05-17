@@ -11,7 +11,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AplicationDbContext>(options =>
-                options.UseSqlServer("Server=RamirezGaleano\\SQLEXPRESS;Database=FacturacionDb;Trusted_Connection=True;MultipleActiveResultSets=True;TrustServerCertificate=True"));
+                options.UseSqlServer(builder.Configuration.GetConnectionString("FacturacionDBLocalConnection")));
 
 var app = builder.Build();
 
