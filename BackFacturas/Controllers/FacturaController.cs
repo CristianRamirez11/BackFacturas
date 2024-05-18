@@ -27,12 +27,8 @@ namespace BackFacturas.Controllers
         {
             try
             {
-
                 var listaFacturas = await _context.Facturas.ToListAsync();
-
                 return Ok(listaFacturas);
-
-
             }
             catch (Exception ex)
             {
@@ -125,17 +121,18 @@ namespace BackFacturas.Controllers
         }
 
         // POST api/<FacturaController>
-        [HttpPost]
-        public async Task<ActionResult<FacturaNuevaRegistradaDTO>> PostFactura([FromBody] NuevaFacturaDTO factura)
+        [HttpPost("RegistrarDetalleFacturaAndFactura")]
+        public async Task<ActionResult<FacturaNuevaRegistradaDTO>> PostFactura([FromBody] NuevaFacturaDTO nuevoRegistroDetalleFactura)
         {
             try
             {
-                Cliente cliente = await _context.Clientes.FirstAsync(c => c.ClienteId == factura.ClienteId);
-                Ciudad ciudad = await _context.Ciudades.FirstAsync(c => c.CiudadId == cliente.CiudadId);
+                Cliente cliente = await _context.Clientes.FirstAsync(c => c.ClienteId == nuevoRegistroDetalleFactura.ClienteId);
+                Articulo articulo = await _context.Articulos.FirstAsync(a => a.ArticuloId == nuevoRegistroDetalleFactura.ArticuloId);
+                Ciudad ciudad = await _context.Ciudades.FirstAsync(c => c.CiudadId == nuevoRegistroDetalleFactura.CiudadId);
 
                 Factura nuevaFactura = new()
                 {
-                    Fecha = factura.Fecha,
+                    Fecha = nuevoRegistroDetalleFactura.Fecha,
                     ClienteId = cliente.ClienteId,
                     Cliente = cliente,
                     DetalleFacturas = []
@@ -146,15 +143,31 @@ namespace BackFacturas.Controllers
 
                 var ultimaFacturaRegistrada = await _context.Facturas.OrderBy(f => f.NumeroFactura).LastOrDefaultAsync();
 
+                DetalleFactura nuevoDetalleFactura = new()
+                {
+                    Cantidad = nuevoRegistroDetalleFactura.Cantidad,
+                    ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio,
+                    NombreCiudad = ciudad.Nombre,
+                    NombreArticulo = articulo.Nombre,
+                    NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
+                    Factura = ultimaFacturaRegistrada,
+                    ArticuloId = articulo.ArticuloId,
+                    Articulo = articulo
+                };
+
+                _context.DetalleFacturas.Add(nuevoDetalleFactura);
+                await _context.SaveChangesAsync();
+
                 FacturaNuevaRegistradaDTO facturaNuevaRegistradaDTO = new()
                 {
                     NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
                     Fecha = ultimaFacturaRegistrada.Fecha,
-                    ClienteId = ultimaFacturaRegistrada.ClienteId,
                     NombreCompletoCliente = ultimaFacturaRegistrada.Cliente.Nombre + " " + ultimaFacturaRegistrada.Cliente.Apellido,
                     NumeroCelular = ultimaFacturaRegistrada.Cliente.Celular,
                     Email = ultimaFacturaRegistrada.Cliente.Email,
-                    CiudadCliente = ultimaFacturaRegistrada.Cliente.Ciudad.Nombre + ", " + ultimaFacturaRegistrada.Cliente.Ciudad.Departamento
+                    CiudadCliente = ciudad.Nombre + ", " + ciudad.Departamento,
+                    NombreArticulo = articulo.Nombre,
+                    ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio
                 };
 
                 return Ok(facturaNuevaRegistradaDTO);
@@ -166,51 +179,61 @@ namespace BackFacturas.Controllers
         }
 
         // PUT api/<FacturaController>/5
-        [HttpPut("{numeroFactura}")]
-        public async Task<IActionResult> PutFactura(int numeroFactura, Factura factura)
+        [HttpPut("ActualizarDetalleFactura")]
+        public async Task<IActionResult> PutFactura([FromBody] ActualizarDetalleFacturaDTO actualizarDetalleFactura)
         {
-
-            if (numeroFactura != factura.NumeroFactura)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(factura).State = EntityState.Modified;
             try
             {
+                if (actualizarDetalleFactura.NumeroFactura == 0 || actualizarDetalleFactura.NumeroFactura < 0)
+                    return BadRequest();
+
+                DetalleFactura? detalleFacturaActualizar = await _context.DetalleFacturas
+                                                                        .Include(df => df.Factura)
+                                                                        .Include(df => df.Articulo)
+                                                                        .FirstOrDefaultAsync(df => df.NumeroDetalle == actualizarDetalleFactura.NumeroDetalle);
+
+                detalleFacturaActualizar.Cantidad = actualizarDetalleFactura.Cantidad;
+                detalleFacturaActualizar.ValorTotal = actualizarDetalleFactura.ValorTotal;
+                detalleFacturaActualizar.NombreCiudad = actualizarDetalleFactura.NombreCiudad;
+                detalleFacturaActualizar.NombreArticulo = actualizarDetalleFactura.NombreArticulo;
+
+                _context.Update(detalleFacturaActualizar);
                 await _context.SaveChangesAsync();
+
+                return Ok(new { message = "El detalle de la factura fue actualizado !!!"});
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateConcurrencyException ex)
             {
                 if (!FacturaExists(numeroFactura))
-                {
                     return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                else              
+                    return BadRequest(ex.Message);                
             }
-
-            return NoContent();
         }
 
         // DELETE api/<FacturaController>/5
-        [HttpDelete("{numeroFactura}")]
-        public async Task<IActionResult> DeleteFactura(int numeroFactura)
+        [HttpDelete("EliminarDetalleFacturaAndFactura{numeroDetalleFactura}")]
+        public async Task<IActionResult> DeleteFactura(int numeroDetalleFactura)
         {
-
-            Factura? factura = await _context.Facturas.FindAsync(numeroFactura);
-            if (factura == null)
+            try
             {
-                return NotFound(numeroFactura);
+                DetalleFactura? detalleFactura = await _context.DetalleFacturas.FindAsync(numeroDetalleFactura);
+                if (detalleFactura == null)
+                {
+                    return NotFound( new {message = "Factura no encontrada"});
+                }
+
+                _context.DetalleFacturas.Remove(detalleFactura);
+                _context.Facturas.Remove(detalleFactura.Factura);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "La Factura y el detalle de la factura fuerón eliminados con exito !!!" });
             }
-
-            _context.Facturas.Remove(factura);
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message); ;
+            }
         }
 
 

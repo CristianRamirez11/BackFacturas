@@ -13,13 +13,8 @@ namespace BackFacturas.Models
         public int ClienteId { get; set; }
         [Required]
         public Cliente Cliente { get; set; }
-
-        public IList<DetalleFactura> DetalleFacturas { get; set; }
-
-        public Factura()
-        {
-            DetalleFacturas = new List<DetalleFactura>();
-        }
+        public int NumeroDetalle { get; set; }
+        public DetalleFactura DetalleFactura { get; set; }
 
     }
 }
