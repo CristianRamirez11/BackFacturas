@@ -134,8 +134,7 @@ namespace BackFacturas.Controllers
                 {
                     Fecha = nuevoRegistroDetalleFactura.Fecha,
                     ClienteId = cliente.ClienteId,
-                    Cliente = cliente,
-                    DetalleFacturas = []
+                    Cliente = cliente
                 };
                 
                 _context.Facturas.Add(nuevaFactura);
@@ -204,7 +203,7 @@ namespace BackFacturas.Controllers
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                if (!FacturaExists(numeroFactura))
+                if (!FacturaExists(actualizarDetalleFactura.NumeroFactura))
                     return NotFound();
                 else              
                     return BadRequest(ex.Message);                
