@@ -3,6 +3,7 @@ using BackFacturas.ConexionDbContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BackFacturas.Migrations
 {
     [DbContext(typeof(AplicationDbContext))]
-    partial class AplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240518002800_v1.0.3")]
+    partial class v103
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -134,7 +137,8 @@ namespace BackFacturas.Migrations
 
                     b.HasIndex("ArticuloId");
 
-                    b.HasIndex("NumeroFactura");
+                    b.HasIndex("NumeroFactura")
+                        .IsUnique();
 
                     b.ToTable("DetalleFacturas");
                 });
@@ -154,14 +158,9 @@ namespace BackFacturas.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("NumeroDetalle")
-                        .HasColumnType("int");
-
                     b.HasKey("NumeroFactura");
 
                     b.HasIndex("ClienteId");
-
-                    b.HasIndex("NumeroDetalle");
 
                     b.ToTable("Facturas");
                 });
@@ -186,8 +185,8 @@ namespace BackFacturas.Migrations
                         .IsRequired();
 
                     b.HasOne("BackFacturas.Models.Factura", "Factura")
-                        .WithMany()
-                        .HasForeignKey("NumeroFactura")
+                        .WithOne("DetalleFactura")
+                        .HasForeignKey("BackFacturas.Models.DetalleFactura", "NumeroFactura")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -204,15 +203,7 @@ namespace BackFacturas.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BackFacturas.Models.DetalleFactura", "DetalleFactura")
-                        .WithMany()
-                        .HasForeignKey("NumeroDetalle")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Cliente");
-
-                    b.Navigation("DetalleFactura");
                 });
 
             modelBuilder.Entity("BackFacturas.Models.Articulo", b =>
@@ -228,6 +219,12 @@ namespace BackFacturas.Migrations
             modelBuilder.Entity("BackFacturas.Models.Cliente", b =>
                 {
                     b.Navigation("Facturas");
+                });
+
+            modelBuilder.Entity("BackFacturas.Models.Factura", b =>
+                {
+                    b.Navigation("DetalleFactura")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

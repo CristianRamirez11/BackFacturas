@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BackFacturas.Models
 {
@@ -12,7 +13,7 @@ namespace BackFacturas.Models
         public double ValorTotal { get; set; }
         public string NombreCiudad { get; set; }
         public string NombreArticulo { get; set; }
-        [Required]
+        [ForeignKey("Factura")]
         public int NumeroFactura { get; set; }
         [Required]
         public Factura Factura { get; set; }

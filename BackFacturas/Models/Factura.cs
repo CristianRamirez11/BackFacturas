@@ -1,5 +1,6 @@
 ﻿using Microsoft.Identity.Client;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BackFacturas.Models
 {
@@ -13,7 +14,7 @@ namespace BackFacturas.Models
         public int ClienteId { get; set; }
         [Required]
         public Cliente Cliente { get; set; }
-        public int NumeroDetalle { get; set; }
+        [Required]
         public DetalleFactura DetalleFactura { get; set; }
 
     }
