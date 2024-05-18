@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace BackFacturas.DTOs
 {
-    public class NuevaFacturaDTO
+    public class NuevaFacturaInputDTO
     {
         public string Fecha { get; set; }
         public int ClienteId { get; set; }

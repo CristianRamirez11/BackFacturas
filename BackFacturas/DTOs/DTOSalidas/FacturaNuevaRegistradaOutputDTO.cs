@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BackFacturas.DTOs.DTOSalidas
 {
-    public class FacturaNuevaRegistradaDTO
+    public class FacturaNuevaRegistradaOutputDTO
     {
         public int NumeroFactura { get; set; }
         public string Fecha { get; set; }

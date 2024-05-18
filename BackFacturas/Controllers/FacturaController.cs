@@ -85,7 +85,7 @@ namespace BackFacturas.Controllers
                         {
                             NumeroDetalle = detalleFactura.NumeroDetalle,
                             Cantidad = detalleFactura.Cantidad,
-                            ValorTotal = detalleFactura.ValorTotal,
+                            ValorTotal = detalleFactura.Cantidad * detalleFactura.Articulo.Precio,
                             NombreCiudad = detalleFactura.Factura.Cliente.Ciudad.Nombre,
                             NombreArticulo = detalleFactura.Articulo.Nombre,
                             NumeroFactura = detalleFactura.Factura.NumeroFactura,
@@ -105,12 +105,12 @@ namespace BackFacturas.Controllers
 
         // GET: api/Factura/ResumenVentasCiudad
         [HttpGet("ResumenTotalVentaCiudad")]
-        public async Task<ActionResult<IEnumerable<ResumenCiudadDTO>>> GetResumenPorCiudad()
+        public async Task<ActionResult<IEnumerable<ResumenCiudadOutputDTO>>> GetResumenPorCiudad()
         {
             var resumen = await _context.DetalleFacturas
                 .Include(df => df.Factura.Cliente.Ciudad)
                 .GroupBy(df => df.Factura.Cliente.Ciudad)
-                .Select(g => new ResumenCiudadDTO
+                .Select(g => new ResumenCiudadOutputDTO
                 {
                     NombreCiudad = g.First().Factura.Cliente.Ciudad.Nombre,
                     TotalValorVendidoCiudad = g.Sum(f => f.ValorTotal)
@@ -121,55 +121,71 @@ namespace BackFacturas.Controllers
         }
 
         // POST api/<FacturaController>
-        [HttpPost("RegistrarDetalleFacturaAndFactura")]
-        public async Task<ActionResult<FacturaNuevaRegistradaDTO>> PostFactura([FromBody] NuevaFacturaDTO nuevoRegistroDetalleFactura)
+        [HttpPost("RegistrarVentaDetalleFacturaAndFactura")]
+        public async Task<ActionResult<FacturaNuevaRegistradaOutputDTO>> PostFactura([FromBody] NuevaFacturaInputDTO nuevoRegistroDetalleFactura)
         {
             try
             {
-                Cliente cliente = await _context.Clientes.FirstAsync(c => c.ClienteId == nuevoRegistroDetalleFactura.ClienteId);
                 Articulo articulo = await _context.Articulos.FirstAsync(a => a.ArticuloId == nuevoRegistroDetalleFactura.ArticuloId);
-                Ciudad ciudad = await _context.Ciudades.FirstAsync(c => c.CiudadId == nuevoRegistroDetalleFactura.CiudadId);
-
-                Factura nuevaFactura = new()
+                if (articulo.Disponibilidad)
                 {
-                    Fecha = nuevoRegistroDetalleFactura.Fecha,
-                    ClienteId = cliente.ClienteId,
-                    Cliente = cliente
-                };
-                
-                _context.Facturas.Add(nuevaFactura);
-                await _context.SaveChangesAsync();
+                    if (nuevoRegistroDetalleFactura.Cantidad <= articulo.Stock)
+                    {
+                        Cliente cliente = await _context.Clientes.FirstAsync(c => c.ClienteId == nuevoRegistroDetalleFactura.ClienteId);
+                        Ciudad ciudad = await _context.Ciudades.FirstAsync(c => c.CiudadId == nuevoRegistroDetalleFactura.CiudadId);
 
-                var ultimaFacturaRegistrada = await _context.Facturas.OrderBy(f => f.NumeroFactura).LastOrDefaultAsync();
+                        Factura nuevaFactura = new()
+                        {
+                            Fecha = nuevoRegistroDetalleFactura.Fecha,
+                            ClienteId = cliente.ClienteId,
+                            Cliente = cliente
+                        };
 
-                DetalleFactura nuevoDetalleFactura = new()
+                        _context.Facturas.Add(nuevaFactura);
+                        await _context.SaveChangesAsync();
+
+                        var ultimaFacturaRegistrada = await _context.Facturas.OrderBy(f => f.NumeroFactura).LastOrDefaultAsync();
+
+                        DetalleFactura nuevoDetalleFactura = new()
+                        {
+                            Cantidad = nuevoRegistroDetalleFactura.Cantidad,
+                            ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio,
+                            NombreCiudad = ciudad.Nombre,
+                            NombreArticulo = articulo.Nombre,
+                            NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
+                            Factura = ultimaFacturaRegistrada,
+                            ArticuloId = articulo.ArticuloId,
+                            Articulo = articulo
+                        };
+
+                        _context.DetalleFacturas.Add(nuevoDetalleFactura);
+                        await _context.SaveChangesAsync();
+
+                        FacturaNuevaRegistradaOutputDTO facturaNuevaRegistradaDTO = new()
+                        {
+                            NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
+                            Fecha = ultimaFacturaRegistrada.Fecha,
+                            NombreCompletoCliente = ultimaFacturaRegistrada.Cliente.Nombre + " " + ultimaFacturaRegistrada.Cliente.Apellido,
+                            NumeroCelular = ultimaFacturaRegistrada.Cliente.Celular,
+                            Email = ultimaFacturaRegistrada.Cliente.Email,
+                            CiudadCliente = ciudad.Nombre + ", " + ciudad.Departamento,
+                            NombreArticulo = articulo.Nombre,
+                            ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio
+                        };
+
+                        articulo.Stock -= nuevoRegistroDetalleFactura.Cantidad;
+                        _context.Articulos.Update(articulo);
+                        await _context.SaveChangesAsync();
+
+                        return Ok(facturaNuevaRegistradaDTO);
+                    }
+                    else
+                        return BadRequest(new { message = "La cantidad seleccionada supero el Stock disponible del producto !!!" });
+                }
+                else
                 {
-                    Cantidad = nuevoRegistroDetalleFactura.Cantidad,
-                    ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio,
-                    NombreCiudad = ciudad.Nombre,
-                    NombreArticulo = articulo.Nombre,
-                    NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
-                    Factura = ultimaFacturaRegistrada,
-                    ArticuloId = articulo.ArticuloId,
-                    Articulo = articulo
-                };
-
-                _context.DetalleFacturas.Add(nuevoDetalleFactura);
-                await _context.SaveChangesAsync();
-
-                FacturaNuevaRegistradaDTO facturaNuevaRegistradaDTO = new()
-                {
-                    NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
-                    Fecha = ultimaFacturaRegistrada.Fecha,
-                    NombreCompletoCliente = ultimaFacturaRegistrada.Cliente.Nombre + " " + ultimaFacturaRegistrada.Cliente.Apellido,
-                    NumeroCelular = ultimaFacturaRegistrada.Cliente.Celular,
-                    Email = ultimaFacturaRegistrada.Cliente.Email,
-                    CiudadCliente = ciudad.Nombre + ", " + ciudad.Departamento,
-                    NombreArticulo = articulo.Nombre,
-                    ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio
-                };
-
-                return Ok(facturaNuevaRegistradaDTO);
+                    return BadRequest(new { message ="No hay Stock disponible de este producto !!!"});
+                }
             }
             catch (Exception ex)
             {
@@ -179,27 +195,41 @@ namespace BackFacturas.Controllers
 
         // PUT api/<FacturaController>/5
         [HttpPut("ActualizarDetalleFactura")]
-        public async Task<IActionResult> PutFactura([FromBody] ActualizarDetalleFacturaDTO actualizarDetalleFactura)
+        public async Task<IActionResult> PutFactura([FromBody] ActualizarDetalleFacturaInputDTO actualizarDetalleFactura)
         {
             try
             {
                 if (actualizarDetalleFactura.NumeroFactura == 0 || actualizarDetalleFactura.NumeroFactura < 0)
                     return BadRequest();
 
-                DetalleFactura? detalleFacturaActualizar = await _context.DetalleFacturas
-                                                                        .Include(df => df.Factura)
-                                                                        .Include(df => df.Articulo)
-                                                                        .FirstOrDefaultAsync(df => df.NumeroDetalle == actualizarDetalleFactura.NumeroDetalle);
+                Articulo articulo = await _context.Articulos.FirstAsync(a => a.ArticuloId == actualizarDetalleFactura.ArticuloId);
+                if (articulo.Disponibilidad && actualizarDetalleFactura.Cantidad <= articulo.Stock)
+                {
+                    Factura factura = await _context.Facturas
+                                                    .Include(c => c.Cliente)
+                                                    .Include(c => c.Cliente.Ciudad)
+                                                    .FirstAsync(f => f.NumeroFactura == actualizarDetalleFactura.NumeroFactura);
 
-                detalleFacturaActualizar.Cantidad = actualizarDetalleFactura.Cantidad;
-                detalleFacturaActualizar.ValorTotal = actualizarDetalleFactura.ValorTotal;
-                detalleFacturaActualizar.NombreCiudad = actualizarDetalleFactura.NombreCiudad;
-                detalleFacturaActualizar.NombreArticulo = actualizarDetalleFactura.NombreArticulo;
+                    DetalleFactura? detalleFacturaActualizar = await _context.DetalleFacturas
+                                                                            .FirstOrDefaultAsync(df => df.NumeroDetalle == actualizarDetalleFactura.NumeroDetalle);
 
-                _context.Update(detalleFacturaActualizar);
-                await _context.SaveChangesAsync();
+                    detalleFacturaActualizar.Cantidad = actualizarDetalleFactura.Cantidad;
+                    detalleFacturaActualizar.ValorTotal = actualizarDetalleFactura.Cantidad * articulo.Precio;
+                    detalleFacturaActualizar.NombreCiudad = factura.Cliente.Ciudad.Nombre;
+                    detalleFacturaActualizar.NombreArticulo = articulo.Nombre;
 
-                return Ok(new { message = "El detalle de la factura fue actualizado !!!"});
+                    _context.Update(detalleFacturaActualizar);
+                    articulo.Stock -= actualizarDetalleFactura.Cantidad;
+                    _context.Articulos.Update(articulo);
+
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new { message = "El detalle de la factura fue actualizado !!!" });
+                }
+                else
+                {
+                    return BadRequest();
+                }
             }
             catch (DbUpdateConcurrencyException ex)
             {
@@ -216,14 +246,21 @@ namespace BackFacturas.Controllers
         {
             try
             {
-                DetalleFactura? detalleFactura = await _context.DetalleFacturas.FindAsync(numeroDetalleFactura);
+                DetalleFactura? detalleFactura = await _context.DetalleFacturas
+                                                               .Include(a => a.Articulo)
+                                                               .FirstOrDefaultAsync(df => df.NumeroDetalle == numeroDetalleFactura);
                 if (detalleFactura == null)
                 {
                     return NotFound( new {message = "Factura no encontrada"});
                 }
 
+                Articulo articulo = await _context.Articulos.FirstAsync(a => a.ArticuloId == detalleFactura.ArticuloId);
+
                 _context.DetalleFacturas.Remove(detalleFactura);
                 _context.Facturas.Remove(detalleFactura.Factura);
+
+                articulo.Stock += detalleFactura.Cantidad;
+                _context.Articulos.Update(articulo);
 
                 await _context.SaveChangesAsync();
 
