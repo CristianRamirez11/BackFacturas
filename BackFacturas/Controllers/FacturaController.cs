@@ -117,6 +117,9 @@ namespace BackFacturas.Controllers
                 })
                 .ToListAsync();
 
+            if (resumen == null)
+                return NotFound();
+
             return Ok(resumen);
         }
 
@@ -131,8 +134,9 @@ namespace BackFacturas.Controllers
                 {
                     if (nuevoRegistroDetalleFactura.Cantidad <= articulo.Stock)
                     {
-                        Cliente cliente = await _context.Clientes.FirstAsync(c => c.ClienteId == nuevoRegistroDetalleFactura.ClienteId);
-                        Ciudad ciudad = await _context.Ciudades.FirstAsync(c => c.CiudadId == nuevoRegistroDetalleFactura.CiudadId);
+                        Cliente cliente = await _context.Clientes
+                                                        .Include(c => c.Ciudad)
+                                                        .FirstAsync(c => c.ClienteId == nuevoRegistroDetalleFactura.ClienteId);
 
                         Factura nuevaFactura = new()
                         {
@@ -150,7 +154,7 @@ namespace BackFacturas.Controllers
                         {
                             Cantidad = nuevoRegistroDetalleFactura.Cantidad,
                             ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio,
-                            NombreCiudad = ciudad.Nombre,
+                            NombreCiudad = cliente.Ciudad.Nombre,
                             NombreArticulo = articulo.Nombre,
                             NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
                             Factura = ultimaFacturaRegistrada,
@@ -163,24 +167,26 @@ namespace BackFacturas.Controllers
 
                         FacturaNuevaRegistradaOutputDTO facturaNuevaRegistradaDTO = new()
                         {
-                            NumeroFactura = ultimaFacturaRegistrada.NumeroFactura,
+                            NumeroDetalle = ultimaFacturaRegistrada.DetalleFactura.NumeroDetalle,
                             Fecha = ultimaFacturaRegistrada.Fecha,
-                            NombreCompletoCliente = ultimaFacturaRegistrada.Cliente.Nombre + " " + ultimaFacturaRegistrada.Cliente.Apellido,
-                            NumeroCelular = ultimaFacturaRegistrada.Cliente.Celular,
-                            Email = ultimaFacturaRegistrada.Cliente.Email,
-                            CiudadCliente = ciudad.Nombre + ", " + ciudad.Departamento,
+                            NombreCompletoCliente = cliente.Nombre + " " + cliente.Apellido,
+                            NumeroCelular = cliente.Celular,
+                            Email = cliente.Email,
+                            CiudadCliente = cliente.Ciudad.Nombre + ", " + cliente.Ciudad.Departamento,
                             NombreArticulo = articulo.Nombre,
                             ValorTotal = nuevoRegistroDetalleFactura.Cantidad * articulo.Precio
                         };
 
                         articulo.Stock -= nuevoRegistroDetalleFactura.Cantidad;
-                        _context.Articulos.Update(articulo);
+                        if (articulo.Stock == 0)
+                            articulo.Disponibilidad = false;
+
                         await _context.SaveChangesAsync();
 
                         return Ok(facturaNuevaRegistradaDTO);
                     }
                     else
-                        return BadRequest(new { message = "La cantidad seleccionada supero el Stock disponible del producto !!!" });
+                        return BadRequest(new { message = "La cantidad seleccionada supera el Stock disponible del producto !!!" });
                 }
                 else
                 {
@@ -199,29 +205,49 @@ namespace BackFacturas.Controllers
         {
             try
             {
-                if (actualizarDetalleFactura.NumeroFactura == 0 || actualizarDetalleFactura.NumeroFactura < 0)
+                if (actualizarDetalleFactura.NumeroDetalle == 0 || actualizarDetalleFactura.NumeroDetalle < 0)
                     return BadRequest();
 
-                Articulo articulo = await _context.Articulos.FirstAsync(a => a.ArticuloId == actualizarDetalleFactura.ArticuloId);
-                if (articulo.Disponibilidad && actualizarDetalleFactura.Cantidad <= articulo.Stock)
+                Articulo? articuloNuevo = await _context.Articulos.FirstOrDefaultAsync(a => a.ArticuloId == actualizarDetalleFactura.ArticuloId);
+                if (articuloNuevo == null)
                 {
-                    Factura factura = await _context.Facturas
-                                                    .Include(c => c.Cliente)
-                                                    .Include(c => c.Cliente.Ciudad)
-                                                    .FirstAsync(f => f.NumeroFactura == actualizarDetalleFactura.NumeroFactura);
+                    return NotFound(new { message = "Articulo no encontrada" });
+                }
+
+                if (articuloNuevo.Disponibilidad && actualizarDetalleFactura.Cantidad <= articuloNuevo.Stock)
+                {
 
                     DetalleFactura? detalleFacturaActualizar = await _context.DetalleFacturas
-                                                                            .FirstOrDefaultAsync(df => df.NumeroDetalle == actualizarDetalleFactura.NumeroDetalle);
+                                                                             .Include(df => df.Factura)
+                                                                             .Include(df => df.Factura.Cliente)
+                                                                             .Include(df => df.Factura.Cliente.Ciudad)
+                                                                             .FirstOrDefaultAsync(df => df.NumeroDetalle == actualizarDetalleFactura.NumeroDetalle);
+
+                    if (detalleFacturaActualizar == null)
+                    {
+                        return NotFound(new { message = "Factura no encontrada" });
+                    }
+
+                    Articulo? articuloViejo = await _context.Articulos.FirstOrDefaultAsync(a => a.ArticuloId == detalleFacturaActualizar.ArticuloId);
+                    articuloViejo.Stock += detalleFacturaActualizar.Cantidad;
+                    articuloViejo.Disponibilidad = true;
+                    //Factura factura = await _context.Facturas
+                    //                                .Include(c => c.Cliente)
+                    //                                .Include(c => c.Cliente.Ciudad)
+                    //                                .FirstAsync(f => f.NumeroFactura == actualizarDetalleFactura.NumeroFactura);
+
+
 
                     detalleFacturaActualizar.Cantidad = actualizarDetalleFactura.Cantidad;
-                    detalleFacturaActualizar.ValorTotal = actualizarDetalleFactura.Cantidad * articulo.Precio;
-                    detalleFacturaActualizar.NombreCiudad = factura.Cliente.Ciudad.Nombre;
-                    detalleFacturaActualizar.NombreArticulo = articulo.Nombre;
+                    detalleFacturaActualizar.ValorTotal = actualizarDetalleFactura.Cantidad * articuloNuevo.Precio;
+                    detalleFacturaActualizar.NombreCiudad = detalleFacturaActualizar.Factura.Cliente.Ciudad.Nombre;
+                    detalleFacturaActualizar.NombreArticulo = articuloNuevo.Nombre;
 
-                    _context.Update(detalleFacturaActualizar);
-                    articulo.Stock -= actualizarDetalleFactura.Cantidad;
-                    _context.Articulos.Update(articulo);
+                    articuloNuevo.Stock -= actualizarDetalleFactura.Cantidad;
+                    if (articuloNuevo.Stock == 0)
+                        articuloNuevo.Disponibilidad = false;
 
+                    _context.Update(detalleFacturaActualizar);               
                     await _context.SaveChangesAsync();
 
                     return Ok(new { message = "El detalle de la factura fue actualizado !!!" });
@@ -233,7 +259,7 @@ namespace BackFacturas.Controllers
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                if (!FacturaExists(actualizarDetalleFactura.NumeroFactura))
+                if (!FacturaExists(actualizarDetalleFactura.NumeroDetalle))
                     return NotFound();
                 else              
                     return BadRequest(ex.Message);                
@@ -248,20 +274,21 @@ namespace BackFacturas.Controllers
             {
                 DetalleFactura? detalleFactura = await _context.DetalleFacturas
                                                                .Include(a => a.Articulo)
+                                                               .Include(f => f.Factura)
                                                                .FirstOrDefaultAsync(df => df.NumeroDetalle == numeroDetalleFactura);
                 if (detalleFactura == null)
                 {
                     return NotFound( new {message = "Factura no encontrada"});
                 }
 
-                Articulo articulo = await _context.Articulos.FirstAsync(a => a.ArticuloId == detalleFactura.ArticuloId);
+                Articulo? articulo = await _context.Articulos.FindAsync(detalleFactura.ArticuloId);
+                articulo.Stock += detalleFactura.Cantidad;
+                if (articulo.Stock > 0)
+                    articulo.Disponibilidad = true;
+
 
                 _context.DetalleFacturas.Remove(detalleFactura);
                 _context.Facturas.Remove(detalleFactura.Factura);
-
-                articulo.Stock += detalleFactura.Cantidad;
-                _context.Articulos.Update(articulo);
-
                 await _context.SaveChangesAsync();
 
                 return Ok(new { message = "La Factura y el detalle de la factura fuerón eliminados con exito !!!" });
@@ -275,7 +302,7 @@ namespace BackFacturas.Controllers
 
         private bool FacturaExists(int numeroFactura)
         {
-            return _context.DetalleFacturas.Any(df => df.NumeroFactura == numeroFactura);
+            return _context.DetalleFacturas.Any(df => df.NumeroDetalle == numeroFactura);
         }
 
     }

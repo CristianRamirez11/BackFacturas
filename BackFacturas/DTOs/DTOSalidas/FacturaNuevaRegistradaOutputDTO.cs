@@ -5,7 +5,7 @@ namespace BackFacturas.DTOs.DTOSalidas
 {
     public class FacturaNuevaRegistradaOutputDTO
     {
-        public int NumeroFactura { get; set; }
+        public int NumeroDetalle { get; set; }
         public string Fecha { get; set; }
         public string NombreCompletoCliente { get; set; }
         public string NumeroCelular { get; set; }
