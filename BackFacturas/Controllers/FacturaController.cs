@@ -267,7 +267,7 @@ namespace BackFacturas.Controllers
         }
 
         // DELETE api/<FacturaController>/5
-        [HttpDelete("EliminarDetalleFacturaAndFactura{numeroDetalleFactura}")]
+        [HttpDelete("EliminarDetalleFacturaAndFactura/{numeroDetalleFactura}")]
         public async Task<IActionResult> DeleteFactura(int numeroDetalleFactura)
         {
             try
